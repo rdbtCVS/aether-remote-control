@@ -7,7 +7,6 @@ Control your Aether farming in Minecraft from a Discord bot — type a command i
 ## What You Need
 
 - A PC running Windows/Mac/Linux
-- [Python](https://www.python.org/downloads/) installed (3.10 or higher)
 - Minecraft with [Fabric](https://fabricmc.net/use/installer/) installed
 - A Discord account
 
