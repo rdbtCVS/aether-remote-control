@@ -28,6 +28,7 @@ public final class AetherRemoteControlMod implements ClientModInitializer {
     public void onInitializeClient() {
         instance = this;
         startHttpServer();
+        AetherClientCommands.register();
         AetherKeybinds.register();
         startDiscordBotIfConfigured();
         AetherConfigScreen.openIfConfigMissing();
