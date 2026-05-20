@@ -13,7 +13,7 @@ import java.util.Map;
 
 public final class AetherControlHttpHandler implements HttpHandler {
     private static final String AUTH_HEADER = "X-Remote-Auth";
-    private static final String START_COMMAND = "/aether start";
+    private static final String START_COMMAND = "/aether farming";
     private static final String STOP_COMMAND = "/aether stop";
     private static final String STATUS_COMMAND = "/aether status";
 
