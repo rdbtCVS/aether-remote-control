@@ -13,8 +13,9 @@ import java.util.Map;
 
 public final class AetherControlHttpHandler implements HttpHandler {
     private static final String AUTH_HEADER = "X-Remote-Auth";
-    private static final String START_COMMAND = "/aether farming";
+    private static final String START_COMMAND = "/aether start";
     private static final String STOP_COMMAND = "/aether stop";
+    private static final String STATUS_COMMAND = "/aether status";
 
     private final String expectedToken;
 
@@ -40,24 +41,28 @@ public final class AetherControlHttpHandler implements HttpHandler {
             String requestedCommand = queryParams.get("command");
 
             if (requestedCommand == null || requestedCommand.isBlank()) {
-                sendResponse(exchange, 400, "Missing command. Use command=start or command=stop");
+                sendResponse(exchange, 400, "Missing command. Use command=start, command=stop, or command=status");
                 return;
             }
 
             switch (requestedCommand.toLowerCase(Locale.ROOT)) {
                 case "start" -> {
-                    executeSlashCommand(START_COMMAND, "§a[Remote Control] Executed start command");
+                    executeSlashCommand(START_COMMAND, "\u00a7a[Remote Control] Executed start command");
                     sendResponse(exchange, 200, "Triggered " + START_COMMAND);
                 }
                 case "stop" -> {
-                    executeSlashCommand(STOP_COMMAND, "§a[Remote Control] Executed stop command");
+                    executeSlashCommand(STOP_COMMAND, "\u00a7a[Remote Control] Executed stop command");
                     sendResponse(exchange, 200, "Triggered " + STOP_COMMAND);
+                }
+                case "status" -> {
+                    executeSlashCommand(STATUS_COMMAND, "\u00a7a[Remote Control] Executed status command");
+                    sendResponse(exchange, 200, "Triggered " + STATUS_COMMAND);
                 }
                 case "config" -> {
                     AetherConfigScreen.open();
                     sendResponse(exchange, 200, "Opened config screen");
                 }
-                default -> sendResponse(exchange, 400, "Invalid command. Use command=start, command=stop, or command=config");
+                default -> sendResponse(exchange, 400, "Invalid command. Use command=start, command=stop, command=status, or command=config");
             }
         } finally {
             exchange.close();

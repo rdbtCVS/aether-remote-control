@@ -96,7 +96,7 @@ final class AetherConfigScreen extends Screen {
 
         drawText(context, "Aether Remote Control", fieldX, 28, 0xFFFFFFFF);
         drawText(context, "Fill these in from the Discord Developer Portal. Press Esc or F10 to close.", fieldX, 46, 0xFFD8D8D8);
-        drawText(context, "Use /aether-start and /aether-stop in Discord after saving.", fieldX, 60, 0xFFD8D8D8);
+        drawText(context, "Use /aether start, /aether stop, and /aether status in Discord after saving.", fieldX, 60, 0xFFD8D8D8);
 
         drawText(context, "1. Discord Bot Token", fieldX, y - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
         drawText(context, "2. Application ID / Client ID", fieldX, y + ROW_GAP - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);

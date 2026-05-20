@@ -1,5 +1,6 @@
 package com.yario.aetherremote;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -28,6 +29,7 @@ final class DiscordBotService implements WebSocket.Listener {
     private static final Logger LOGGER = LoggerFactory.getLogger(AetherRemoteControlMod.MOD_ID);
     private static final URI DISCORD_GATEWAY = URI.create("wss://gateway.discord.gg/?v=10&encoding=json");
     private static final String DISCORD_API = "https://discord.com/api/v10";
+    private static final int MAX_CHAT_MESSAGE_LENGTH = 256;
 
     private final AetherRemoteConfig config;
     private final HttpClient httpClient;
@@ -190,7 +192,7 @@ final class DiscordBotService implements WebSocket.Listener {
     private void handleInteraction(JsonObject interaction) {
         JsonObject commandData = readJsonObject(interaction, "data");
         String commandName = commandData == null ? "" : readJsonString(commandData, "name");
-        if (!"aether-start".equals(commandName) && !"aether-stop".equals(commandName)) {
+        if (!"aether".equals(commandName)) {
             return;
         }
 
@@ -201,23 +203,47 @@ final class DiscordBotService implements WebSocket.Listener {
             return;
         }
 
-        String localCommand = "aether-start".equals(commandName) ? "start" : "stop";
-        String minecraftFeedback = "aether-start".equals(commandName)
-                ? "Started Aether farming."
-                : "Stopped Aether farming.";
+        JsonObject subcommand = readSubcommand(commandData);
+        String localCommand = subcommand == null ? "" : readJsonString(subcommand, "name");
+        if (!"start".equals(localCommand) && !"stop".equals(localCommand) && !"status".equals(localCommand) && !"chat".equals(localCommand)) {
+            LOGGER.warn("Discord interaction used unsupported /aether subcommand: {}", localCommand);
+            return;
+        }
+
+        String chatMessage = "";
+        if ("chat".equals(localCommand)) {
+            chatMessage = readStringOption(subcommand, "message").trim();
+            if (chatMessage.isBlank()) {
+                respondToInteraction(interactionId, interactionToken, "Chat message cannot be blank.");
+                return;
+            }
+            if (chatMessage.length() > MAX_CHAT_MESSAGE_LENGTH) {
+                respondToInteraction(interactionId, interactionToken,
+                        "Chat message is too long for Minecraft chat. Keep it to 256 characters or fewer.");
+                return;
+            }
+        }
 
         MinecraftClientBridge.sendClientFeedback("\u00a7a[Remote Control] Discord command received: " + localCommand);
-        respondToInteraction(interactionId, interactionToken, minecraftFeedback);
-        MinecraftClientBridge.executeSlashCommand(
-                "start".equals(localCommand) ? "aether farming" : "aether stop",
-                "\u00a7a[Remote Control] Discord triggered " + localCommand + " command"
-        );
+        respondToInteraction(interactionId, interactionToken, buildDiscordResponse(localCommand));
+        executeAetherCommand(localCommand, chatMessage);
     }
 
     private void registerSlashCommands() {
         String body = "["
-                + "{\"name\":\"aether-start\",\"description\":\"Start Aether farming\",\"type\":1},"
-                + "{\"name\":\"aether-stop\",\"description\":\"Stop Aether farming\",\"type\":1}"
+                + "{"
+                + "\"name\":\"aether\","
+                + "\"description\":\"Control Aether\","
+                + "\"type\":1,"
+                + "\"options\":["
+                + "{\"name\":\"start\",\"description\":\"Start Aether farming\",\"type\":1},"
+                + "{\"name\":\"stop\",\"description\":\"Stop Aether farming\",\"type\":1},"
+                + "{\"name\":\"status\",\"description\":\"Check Aether status\",\"type\":1},"
+                + "{\"name\":\"chat\",\"description\":\"Send a chat message\",\"type\":1,\"options\":["
+                + "{\"name\":\"message\",\"description\":\"Chat message to send\",\"type\":3,\"required\":true}"
+                + "]}"
+                + "]"
+                + "}"
                 + "]";
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -268,6 +294,65 @@ final class DiscordBotService implements WebSocket.Listener {
                                 + response.statusCode() + " " + summarizeDiscordError(response.body()));
                     }
                 });
+    }
+
+    private void executeAetherCommand(String localCommand, String chatMessage) {
+        if ("chat".equals(localCommand)) {
+            MinecraftClientBridge.executeChatMessage(
+                    chatMessage,
+                    "\u00a7a[Remote Control] Discord triggered chat message"
+            );
+            return;
+        }
+
+        MinecraftClientBridge.executeSlashCommand(
+                "aether " + localCommand,
+                "\u00a7a[Remote Control] Discord triggered " + localCommand + " command"
+        );
+    }
+
+    private String buildDiscordResponse(String localCommand) {
+        return switch (localCommand) {
+            case "start" -> "Started Aether.";
+            case "stop" -> "Stopped Aether.";
+            case "status" -> "Requested Aether status.";
+            case "chat" -> "Sent chat message.";
+            default -> "Command sent.";
+        };
+    }
+
+    private JsonObject readSubcommand(JsonObject commandData) {
+        JsonArray options = readJsonArray(commandData, "options");
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+
+        JsonElement firstOption = options.get(0);
+        if (!firstOption.isJsonObject()) {
+            return null;
+        }
+
+        return firstOption.getAsJsonObject();
+    }
+
+    private String readStringOption(JsonObject subcommand, String optionName) {
+        JsonArray options = readJsonArray(subcommand, "options");
+        if (options == null) {
+            return "";
+        }
+
+        for (JsonElement option : options) {
+            if (!option.isJsonObject()) {
+                continue;
+            }
+
+            JsonObject optionObject = option.getAsJsonObject();
+            if (optionName.equals(readJsonString(optionObject, "name"))) {
+                return readJsonString(optionObject, "value");
+            }
+        }
+
+        return "";
     }
 
     private void connectGateway() {
@@ -344,6 +429,11 @@ final class DiscordBotService implements WebSocket.Listener {
     private static JsonObject readJsonObject(JsonObject object, String key) {
         JsonElement element = object.get(key);
         return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
+    }
+
+    private static JsonArray readJsonArray(JsonObject object, String key) {
+        JsonElement element = object.get(key);
+        return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
     }
 
     private static Integer readJsonInt(JsonObject object, String key) {

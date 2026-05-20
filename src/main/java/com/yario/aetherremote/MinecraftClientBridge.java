@@ -44,6 +44,28 @@ final class MinecraftClientBridge {
         });
     }
 
+    static void executeChatMessage(String message, String feedbackMessage) {
+        executeOnClientThread(() -> {
+            try {
+                Object client = getMinecraftClient();
+                Object player = getPlayer(client);
+                if (player == null) {
+                    return;
+                }
+
+                Object connection = getConnection(client);
+                if (connection == null) {
+                    return;
+                }
+
+                invokeSendChatMessage(connection, message);
+                sendMessage(player, feedbackMessage);
+            } catch (ReflectiveOperationException exception) {
+                LOGGER.error("Failed to execute remote Aether chat message", exception);
+            }
+        });
+    }
+
     static void sendClientFeedback(String message) {
         executeOnClientThread(() -> {
             try {
@@ -111,6 +133,17 @@ final class MinecraftClientBridge {
         ), String.class);
 
         sendCommand.invoke(connection, commandWithoutSlash);
+    }
+
+    private static void invokeSendChatMessage(Object connection, String message) throws ReflectiveOperationException {
+        Method sendChatMessage = connection.getClass().getMethod(MAPPINGS.mapMethodName(
+                INTERMEDIARY,
+                "net.minecraft.class_634",
+                "method_45729",
+                "(Ljava/lang/String;)V"
+        ), String.class);
+
+        sendChatMessage.invoke(connection, message);
     }
 
     private static void sendMessage(Object player, String message) throws ReflectiveOperationException {
