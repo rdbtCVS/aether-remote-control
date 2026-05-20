@@ -29,6 +29,9 @@ final class DiscordBotService implements WebSocket.Listener {
     private static final Logger LOGGER = LoggerFactory.getLogger(AetherRemoteControlMod.MOD_ID);
     private static final URI DISCORD_GATEWAY = URI.create("wss://gateway.discord.gg/?v=10&encoding=json");
     private static final String DISCORD_API = "https://discord.com/api/v10";
+    private static final String AETHER_START_COMMAND = "aether farming";
+    private static final String AETHER_STOP_COMMAND = "aether stop";
+    private static final String AETHER_STATUS_COMMAND = "aether status";
     private static final int MAX_CHAT_MESSAGE_LENGTH = 256;
 
     private final AetherRemoteConfig config;
@@ -305,10 +308,19 @@ final class DiscordBotService implements WebSocket.Listener {
             return;
         }
 
-        MinecraftClientBridge.executeSlashCommand(
-                "aether " + localCommand,
-                "\u00a7a[Remote Control] Discord triggered " + localCommand + " command"
-        );
+        String minecraftCommand = switch (localCommand) {
+            case "start" -> AETHER_START_COMMAND;
+            case "stop" -> AETHER_STOP_COMMAND;
+            case "status" -> AETHER_STATUS_COMMAND;
+            default -> "";
+        };
+
+        if (!minecraftCommand.isBlank()) {
+            MinecraftClientBridge.executeSlashCommand(
+                    minecraftCommand,
+                    "\u00a7a[Remote Control] Discord triggered " + localCommand + " command"
+            );
+        }
     }
 
     private String buildDiscordResponse(String localCommand) {
