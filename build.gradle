@@ -3,7 +3,9 @@ plugins {
     id "maven-publish"
 }
 
-version = project.mod_version
+def releaseVersion = providers.gradleProperty("release_version").orElse(project.mod_version)
+
+version = releaseVersion.get()
 group = project.maven_group
 
 base {
@@ -44,4 +46,25 @@ java {
 
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.register("prepareReleaseArtifacts") {
+    dependsOn tasks.named("remapJar")
+
+    doLast {
+        def jarFile = tasks.named("remapJar").get().archiveFile.get().asFile
+        def releaseDir = layout.projectDirectory.dir("releases").asFile
+
+        copy {
+            from jarFile
+            into releaseDir
+            rename { "${project.archives_base_name}-${project.version}.jar" }
+        }
+
+        copy {
+            from jarFile
+            into releaseDir
+            rename { "${project.archives_base_name}-latest.jar" }
+        }
+    }
 }
