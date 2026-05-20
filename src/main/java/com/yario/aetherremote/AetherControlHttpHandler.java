@@ -58,11 +58,43 @@ public final class AetherControlHttpHandler implements HttpHandler {
                     executeSlashCommand(STATUS_COMMAND, "\u00a7a[Remote Control] Executed status command");
                     sendResponse(exchange, 200, "Triggered " + STATUS_COMMAND);
                 }
+                case "chat" -> {
+                    String message = queryParams.getOrDefault("message", "").trim();
+                    if (message.isBlank()) {
+                        sendResponse(exchange, 400, "Missing chat message");
+                        return;
+                    }
+
+                    executeMinecraftInput(message);
+                    sendResponse(exchange, 200, "Sent chat input");
+                }
+                case "disconnect" -> {
+                    MinecraftClientBridge.disconnectFromServer("\u00a7c[Remote Control] Disconnect requested");
+                    sendResponse(exchange, 200, "Disconnect requested");
+                }
+                case "connect" -> {
+                    MinecraftClientBridge.connectToServer("hypixel.net");
+                    sendResponse(exchange, 200, "Connect requested");
+                }
+                case "panic" -> {
+                    sendResponse(exchange, 200, "Panic crash requested");
+                    Thread panicThread = new Thread(() -> {
+                        try {
+                            Thread.sleep(250L);
+                        } catch (InterruptedException ignored) {
+                            Thread.currentThread().interrupt();
+                        }
+                        MinecraftClientBridge.panicCrash();
+                    }, "Aether Panic Crash");
+                    panicThread.setDaemon(false);
+                    panicThread.start();
+                }
+                case "screenshot" -> sendImageResponse(exchange, MinecraftClientBridge.captureScreenshot());
                 case "config" -> {
                     AetherConfigScreen.open();
                     sendResponse(exchange, 200, "Opened config screen");
                 }
-                default -> sendResponse(exchange, 400, "Invalid command. Use command=start, command=stop, command=status, or command=config");
+                default -> sendResponse(exchange, 400, "Invalid command. Use command=start, command=stop, command=status, command=chat, command=connect, command=disconnect, command=panic, command=screenshot, or command=config");
             }
         } finally {
             exchange.close();
@@ -79,6 +111,15 @@ public final class AetherControlHttpHandler implements HttpHandler {
         }
 
         return slashCommand;
+    }
+
+    private void executeMinecraftInput(String message) {
+        if (message.startsWith("/")) {
+            MinecraftClientBridge.executeSlashCommand(stripLeadingSlash(message), "\u00a7a[Remote Control] Sent command " + message);
+            return;
+        }
+
+        MinecraftClientBridge.executeChatMessage(message, "\u00a7a[Remote Control] Sent chat message");
     }
 
     private Map<String, String> parseQuery(String rawQuery) {
@@ -115,6 +156,15 @@ public final class AetherControlHttpHandler implements HttpHandler {
 
         try (OutputStream outputStream = exchange.getResponseBody()) {
             outputStream.write(responseBody);
+        }
+    }
+
+    private void sendImageResponse(HttpExchange exchange, byte[] imageBytes) throws IOException {
+        exchange.getResponseHeaders().set("Content-Type", "image/png");
+        exchange.sendResponseHeaders(200, imageBytes.length);
+
+        try (OutputStream outputStream = exchange.getResponseBody()) {
+            outputStream.write(imageBytes);
         }
     }
 }

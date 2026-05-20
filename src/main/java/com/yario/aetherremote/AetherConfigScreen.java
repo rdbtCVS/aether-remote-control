@@ -96,15 +96,15 @@ final class AetherConfigScreen extends Screen {
 
         drawText(context, "Aether Remote Control", fieldX, 28, 0xFFFFFFFF);
         drawText(context, "Fill these in from the Discord Developer Portal. Press Esc or F10 to close.", fieldX, 46, 0xFFD8D8D8);
-        drawText(context, "Use /aether start, /aether stop, and /aether status in Discord after saving.", fieldX, 60, 0xFFD8D8D8);
+        drawText(context, "Type /aether panel in Discord to open the embed control panel after saving.", fieldX, 60, 0xFFD8D8D8);
 
         drawText(context, "1. Discord Bot Token", fieldX, y - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
-        drawText(context, "2. Application ID / Client ID", fieldX, y + ROW_GAP - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
+        drawText(context, "2. Application ID / Client ID (optional)", fieldX, y + ROW_GAP - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
         drawText(context, "3. Server ID / Guild ID", fieldX, y + ROW_GAP * 2 - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
 
         super.render(context, mouseX, mouseY, delta);
         drawText(context, "1. Discord Bot Token", fieldX, y - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
-        drawText(context, "2. Application ID / Client ID", fieldX, y + ROW_GAP - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
+        drawText(context, "2. Application ID / Client ID (optional)", fieldX, y + ROW_GAP - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
         drawText(context, "3. Server ID / Guild ID", fieldX, y + ROW_GAP * 2 - LABEL_TO_FIELD_GAP, 0xFFFFFFFF);
         drawText(context, "Paste the full bot token into box 1. Token field limit: 512 characters.", fieldX, y + ROW_GAP * 3 + 4, 0xFFFFCC66);
     }
