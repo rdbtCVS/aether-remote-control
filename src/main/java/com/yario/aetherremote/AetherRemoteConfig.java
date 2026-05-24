@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,6 +17,7 @@ final class AetherRemoteConfig {
     private static final Path CONFIG_PATH = FabricLoader.getInstance()
             .getConfigDir()
             .resolve("aether-remote-control.json");
+    private static final Path SHARED_CONFIG_PATH = resolveSharedConfigPath();
 
     String discordBotToken = "";
     String discordApplicationId = "";
@@ -24,12 +26,13 @@ final class AetherRemoteConfig {
     static AetherRemoteConfig load() {
         AetherRemoteConfig config = new AetherRemoteConfig();
 
-        if (!Files.exists(CONFIG_PATH)) {
+        Path path = Files.exists(CONFIG_PATH) ? CONFIG_PATH : SHARED_CONFIG_PATH;
+        if (path == null || !Files.exists(path)) {
             return config;
         }
 
         try {
-            String json = Files.readString(CONFIG_PATH, StandardCharsets.UTF_8);
+            String json = Files.readString(path, StandardCharsets.UTF_8);
             config.discordBotToken = readJsonString(json, "discordBotToken");
             config.discordApplicationId = readJsonString(json, "discordApplicationId");
             config.discordGuildId = readJsonString(json, "discordGuildId");
@@ -43,7 +46,12 @@ final class AetherRemoteConfig {
     void save() {
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
-            Files.writeString(CONFIG_PATH, toJson(), StandardCharsets.UTF_8);
+            String json = toJson();
+            Files.writeString(CONFIG_PATH, json, StandardCharsets.UTF_8);
+            if (SHARED_CONFIG_PATH != null) {
+                Files.createDirectories(SHARED_CONFIG_PATH.getParent());
+                Files.writeString(SHARED_CONFIG_PATH, json, StandardCharsets.UTF_8);
+            }
         } catch (IOException exception) {
             LOGGER.error("Failed to save Aether Remote Control config", exception);
         }
@@ -51,7 +59,6 @@ final class AetherRemoteConfig {
 
     boolean isDiscordConfigured() {
         return !discordBotToken.isBlank()
-                && !discordApplicationId.isBlank()
                 && !discordGuildId.isBlank();
     }
 
@@ -104,5 +111,14 @@ final class AetherRemoteConfig {
         }
 
         return builder.toString();
+    }
+
+    private static Path resolveSharedConfigPath() {
+        String appData = System.getenv("APPDATA");
+        if (appData == null || appData.isBlank()) {
+            return null;
+        }
+
+        return Paths.get(appData, "PrismLauncher", "aether-remote-control.json");
     }
 }

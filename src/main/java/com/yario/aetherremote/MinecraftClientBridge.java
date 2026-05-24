@@ -1,15 +1,28 @@
 package com.yario.aetherremote;
 
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.MappingResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 final class MinecraftClientBridge {
     private static final Logger LOGGER = LoggerFactory.getLogger(AetherRemoteControlMod.MOD_ID);
+    private static final long MIN_REMOTE_INPUT_INTERVAL_MILLIS = 1250L;
 
     private static final String INTERMEDIARY = "intermediary";
     private static final MappingResolver MAPPINGS = FabricLoader.getInstance().getMappingResolver();
@@ -18,6 +31,7 @@ final class MinecraftClientBridge {
     private static final String LOCAL_PLAYER = mapClass("net.minecraft.class_746");
     private static final String CLIENT_PACKET_LISTENER = mapClass("net.minecraft.class_634");
     private static final String COMPONENT = mapClass("net.minecraft.class_2561");
+    private static long nextRemoteInputAtMillis;
 
     private MinecraftClientBridge() {
     }
@@ -26,6 +40,16 @@ final class MinecraftClientBridge {
         executeOnClientThread(() -> {
             try {
                 Object client = getMinecraftClient();
+                if (!isReadyForRemoteInput(client)) {
+                    sendClientFeedback("§e[Remote Control] Skipped command while Minecraft is changing screens/worlds.");
+                    return;
+                }
+
+                if (!claimRemoteInputSlot()) {
+                    sendClientFeedback("§e[Remote Control] Skipped command because another remote input just ran.");
+                    return;
+                }
+
                 Object player = getPlayer(client);
                 if (player == null) {
                     return;
@@ -48,6 +72,16 @@ final class MinecraftClientBridge {
         executeOnClientThread(() -> {
             try {
                 Object client = getMinecraftClient();
+                if (!isReadyForRemoteInput(client)) {
+                    sendClientFeedback("§e[Remote Control] Skipped chat while Minecraft is changing screens/worlds.");
+                    return;
+                }
+
+                if (!claimRemoteInputSlot()) {
+                    sendClientFeedback("§e[Remote Control] Skipped chat because another remote input just ran.");
+                    return;
+                }
+
                 Object player = getPlayer(client);
                 if (player == null) {
                     return;
@@ -78,6 +112,104 @@ final class MinecraftClientBridge {
                 LOGGER.error("Failed to send remote-control feedback message", exception);
             }
         });
+    }
+
+    static void disconnectFromServer(String feedbackMessage) {
+        Minecraft client = Minecraft.getInstance();
+        client.execute(() -> {
+            Object player = client.player;
+            if (player != null) {
+                try {
+                    sendMessage(player, feedbackMessage);
+                } catch (ReflectiveOperationException exception) {
+                    LOGGER.warn("Failed to send disconnect feedback before disconnecting", exception);
+                }
+            }
+
+            client.disconnect(new TitleScreen(), false);
+        });
+    }
+
+    static void connectToServer(String address) {
+        Minecraft client = Minecraft.getInstance();
+        client.execute(() -> {
+            ServerData serverData = new ServerData(address, address, ServerData.Type.OTHER);
+            ConnectScreen.startConnecting(
+                    new TitleScreen(),
+                    client,
+                    ServerAddress.parseString(address),
+                    serverData,
+                    false,
+                    null
+            );
+        });
+    }
+
+    static void panicCrash() {
+        Runtime.getRuntime().halt(1);
+    }
+
+    static byte[] captureScreenshot() throws IOException {
+        CompletableFuture<byte[]> screenshot = new CompletableFuture<>();
+        Minecraft client = Minecraft.getInstance();
+        client.execute(() -> Screenshot.takeScreenshot(client.getMainRenderTarget(), image -> {
+            Path tempFile = null;
+            try (NativeImage nativeImage = image) {
+                tempFile = Files.createTempFile("aether-remote-status-", ".png");
+                nativeImage.writeToFile(tempFile);
+                screenshot.complete(Files.readAllBytes(tempFile));
+            } catch (IOException exception) {
+                screenshot.completeExceptionally(exception);
+            } finally {
+                if (tempFile != null) {
+                    try {
+                        Files.deleteIfExists(tempFile);
+                    } catch (IOException exception) {
+                        LOGGER.warn("Failed to delete temporary Aether status screenshot", exception);
+                    }
+                }
+            }
+        }));
+
+        try {
+            return screenshot.get(5, TimeUnit.SECONDS);
+        } catch (Exception exception) {
+            throw new IOException("Timed out while capturing Minecraft screenshot", exception);
+        }
+    }
+
+    private static boolean isReadyForRemoteInput(Object client) throws ReflectiveOperationException {
+        if (getPlayer(client) == null || getConnection(client) == null) {
+            return false;
+        }
+
+        Object level = getLevel(client);
+        if (level == null) {
+            return false;
+        }
+
+        Object screen = getCurrentScreen(client);
+        if (screen == null) {
+            return true;
+        }
+
+        String screenClassName = screen.getClass().getName().toLowerCase();
+        return !screenClassName.contains("connect")
+                && !screenClassName.contains("disconnect")
+                && !screenClassName.contains("progress")
+                && !screenClassName.contains("receiving")
+                && !screenClassName.contains("download")
+                && !screenClassName.contains("report");
+    }
+
+    private static boolean claimRemoteInputSlot() {
+        long now = System.currentTimeMillis();
+        if (now < nextRemoteInputAtMillis) {
+            return false;
+        }
+
+        nextRemoteInputAtMillis = now + MIN_REMOTE_INPUT_INTERVAL_MILLIS;
+        return true;
     }
 
     private static void executeOnClientThread(Runnable task) {
@@ -122,6 +254,28 @@ final class MinecraftClientBridge {
         ));
 
         return getConnection.invoke(client);
+    }
+
+    private static Object getLevel(Object client) throws ReflectiveOperationException {
+        Field levelField = client.getClass().getField(MAPPINGS.mapFieldName(
+                INTERMEDIARY,
+                "net.minecraft.class_310",
+                "field_1687",
+                "Lnet/minecraft/class_638;"
+        ));
+
+        return levelField.get(client);
+    }
+
+    private static Object getCurrentScreen(Object client) throws ReflectiveOperationException {
+        Field screenField = client.getClass().getField(MAPPINGS.mapFieldName(
+                INTERMEDIARY,
+                "net.minecraft.class_310",
+                "field_1755",
+                "Lnet/minecraft/class_437;"
+        ));
+
+        return screenField.get(client);
     }
 
     private static void invokeSendCommand(Object connection, String commandWithoutSlash) throws ReflectiveOperationException {
