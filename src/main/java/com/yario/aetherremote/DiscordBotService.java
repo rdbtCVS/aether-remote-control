@@ -824,14 +824,6 @@ final class DiscordBotService implements WebSocket.Listener {
         command.addProperty("description", "Remote control an Aether Minecraft client");
 
         JsonArray options = new JsonArray();
-        JsonObject user = new JsonObject();
-        user.addProperty("type", 3);
-        user.addProperty("name", "user");
-        user.addProperty("description", "Minecraft account to control");
-        user.addProperty("required", false);
-        user.addProperty("autocomplete", true);
-        options.add(user);
-
         JsonObject task = new JsonObject();
         task.addProperty("type", 3);
         task.addProperty("name", "task");
@@ -851,6 +843,14 @@ final class DiscordBotService implements WebSocket.Listener {
         }
         task.add("choices", choices);
         options.add(task);
+
+        JsonObject user = new JsonObject();
+        user.addProperty("type", 3);
+        user.addProperty("name", "user");
+        user.addProperty("description", "Minecraft account to control");
+        user.addProperty("required", false);
+        user.addProperty("autocomplete", true);
+        options.add(user);
 
         JsonObject message = new JsonObject();
         message.addProperty("type", 3);

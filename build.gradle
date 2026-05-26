@@ -13,8 +13,6 @@ base {
 }
 
 loom {
-    clientOnlyMinecraftJar()
-
     mods {
         "aether_remote_control" {
             sourceSet sourceSets.main
