@@ -4,6 +4,7 @@
   "version": "${version}",
   "name": "Aether Remote Control",
   "description": "Discord message remote control for Aether automation commands.",
+  "icon": "assets/aether_remote_control/aether.png",
   "authors": [
     "yario"
   ],
@@ -23,5 +24,8 @@
     "fabric-key-binding-api-v1": "*",
     "fabric-lifecycle-events-v1": "*",
     "fabric-message-api-v1": "*"
+  },
+  "custom": {
+    "firmament:hide_from_modlist": true
   }
 }
