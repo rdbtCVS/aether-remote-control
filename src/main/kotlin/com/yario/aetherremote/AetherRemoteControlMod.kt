@@ -137,36 +137,46 @@ private class ConfigScreen(private val config: Config) : Screen(Component.litera
     private lateinit var channel: EditBox
 
     override fun init() {
-        val x = (width / 2 - 310).coerceAtLeast(32)
-        token = EditBox(font, x, 112, 620, 20, Component.literal("Discord Bot Token")).also {
+        val rowWidth = rowWidth()
+        val x = (width - rowWidth) / 2
+        val y = topY()
+        token = EditBox(font, x, y + 42, rowWidth, 20, Component.literal("Discord Bot Token")).also {
             it.setMaxLength(512)
+            it.setHint(Component.literal("Discord bot token"))
             it.setValue(config.discordBotToken)
             addRenderableWidget(it)
         }
-        guild = EditBox(font, x, 170, 620, 20, Component.literal("Discord Server ID")).also {
+        guild = EditBox(font, x, y + 90, rowWidth, 20, Component.literal("Discord Server ID")).also {
             it.setMaxLength(32)
+            it.setHint(Component.literal("Discord server ID"))
             it.setValue(config.discordGuildId)
             addRenderableWidget(it)
         }
-        channel = EditBox(font, x, 228, 620, 20, Component.literal("Discord Channel ID")).also {
+        channel = EditBox(font, x, y + 138, rowWidth, 20, Component.literal("Discord Channel ID")).also {
             it.setMaxLength(32)
+            it.setHint(Component.literal("Discord channel ID for this Minecraft account"))
             it.setValue(config.channelId)
             addRenderableWidget(it)
         }
-        addRenderableWidget(Button.builder(Component.literal("Save & Connect")) { saveAndConnect() }.bounds(x, 284, 260, 20).build())
-        addRenderableWidget(Button.builder(Component.literal("Close")) { minecraft.setScreen(null) }.bounds(x + 280, 284, 260, 20).build())
+        val buttonWidth = (rowWidth - 20) / 2
+        addRenderableWidget(Button.builder(Component.literal("Save & Connect")) { saveAndConnect() }.bounds(x, y + 190, buttonWidth, 20).build())
+        addRenderableWidget(Button.builder(Component.literal("Close")) { minecraft.setScreen(null) }.bounds(x + buttonWidth + 20, y + 190, buttonWidth, 20).build())
     }
 
     override fun render(context: GuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
         context.fill(0, 0, width, height, 0xE0101010.toInt())
-        val x = (width / 2 - 310).coerceAtLeast(32)
-        context.drawString(font, "Aether Remote Control", x, 36, 0xFFFFFF, true)
-        context.drawString(font, "Discord Bot Token", x, 98, 0xFFFFFF, true)
-        context.drawString(font, "Discord Server ID", x, 156, 0xFFFFFF, true)
-        context.drawString(font, "Discord Channel ID for ${Minecraft.getInstance().user.name}", x, 214, 0xFFFFFF, true)
-        context.drawString(font, "Commands: !aether start|stop|status|connect|disconnect|panic|chat <text>|warp <place>", x, 262, 0xD8D8D8, true)
+        val x = (width - rowWidth()) / 2
+        val y = topY()
+        context.drawString(font, "Aether Remote Control", x, y, 0xFFFFFF, true)
+        context.drawString(font, "Discord Bot Token", x, y + 28, 0xFFFFFF, true)
+        context.drawString(font, "Discord Server ID", x, y + 76, 0xFFFFFF, true)
+        context.drawString(font, "Discord Channel ID for ${Minecraft.getInstance().user.name}", x, y + 124, 0xFFFFFF, true)
+        context.drawString(font, "Commands: !aether start|stop|status|connect|disconnect|panic|chat <text>|warp <place>", x, y + 166, 0xD8D8D8, true)
         super.render(context, mouseX, mouseY, delta)
     }
+
+    private fun rowWidth() = (width - 64).coerceIn(160, 620)
+    private fun topY() = (height / 8).coerceIn(12, 80)
 
     private fun saveAndConnect() {
         config.discordBotToken = token.value.trim()
